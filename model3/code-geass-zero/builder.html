@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Code Geass Model 3 Wrap Builder</title>
+<style>
+:root{color-scheme:dark;--bg:#07060b;--panel:#12101b;--line:#2a2440;--gold:#d6b25e;--red:#c31335;--violet:#5f35a7}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at top,#171025,#07060b 55%);color:#f5f2ff}
+.wrap{max-width:1180px;margin:auto;padding:28px}.top{display:flex;gap:20px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}.eyebrow{letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:#d6b25e}.title{font-size:clamp(30px,5vw,58px);font-weight:800;line-height:.95;margin:7px 0}.sub{max-width:720px;color:#bcb5cb}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;margin-top:26px}.card{background:rgba(18,16,27,.88);border:1px solid #2a2440;border-radius:20px;padding:18px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+canvas{display:block;width:100%;aspect-ratio:1;background:#000;border-radius:14px;border:1px solid #302742}
+label{display:block;font-size:13px;color:#bdb4ca;margin:14px 0 7px}.controls{display:flex;flex-direction:column} button,.file{width:100%;border:0;border-radius:12px;padding:13px 14px;font-weight:700;cursor:pointer;margin-top:10px}
+.primary{background:linear-gradient(135deg,#7b2dc6,#c31335);color:white}.secondary{background:#211a31;color:#fff;border:1px solid #3b3152}.small{font-size:12px;color:#9389a3;line-height:1.45;margin-top:12px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.sw{height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.12)}
+input[type=file]{width:100%;font-size:12px}.tag{display:inline-block;padding:6px 9px;border-radius:999px;background:#1d172a;border:1px solid #34294a;color:#d9d0ea;font-size:12px;margin:4px 4px 0 0}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="eyebrow">2023 Tesla Model 3 • Paint Shop</div>
+      <div class="title">ZERO REQUIEM</div>
+      <div class="sub">Original Code Geass-inspired fan wrap using the exact classic Model 3 Tesla UV template in this repo. Built for a dark, premium anime look rather than a giant poster.</div>
+    </div>
+    <div><span class="tag">1024×1024</span><span class="tag">PNG</span><span class="tag">2017–2023 Model 3</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><canvas id="c" width="1024" height="1024"></canvas></div>
+    <div class="card controls">
+      <div class="eyebrow">Art direction</div>
+      <div class="swatches">
+        <div class="sw" style="background:#08060d"></div>
+        <div class="sw" style="background:#2b174d"></div>
+        <div class="sw" style="background:#c31335"></div>
+        <div class="sw" style="background:#d6b25e"></div>
+      </div>
+
+      <label>Optional character art</label>
+      <input id="art" type="file" accept="image/*" />
+      <div class="small">If you upload a Lelouch, Zero, C.C., or other image you have permission to use, the builder places it across both side-door areas with a dark blend.</div>
+
+      <button id="render" class="secondary">Rebuild wrap</button>
+      <button id="download" class="primary">Download Code_Geass_Zero.png</button>
+
+      <div class="small">The final mask is taken from <code>../template.png</code>, so the body-panel geometry stays exactly aligned to Tesla's classic Model 3 template.</div>
+    </div>
+  </div>
+</div>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const W = 1024, H = 1024;
+let userArt = null;
+
+function wingedSigil(x,y,s,alpha=1){
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s); ctx.globalAlpha=alpha;
+  ctx.shadowColor='#d21443'; ctx.shadowBlur=22;
+  ctx.strokeStyle='#f02b50'; ctx.lineWidth=10; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(-150,-10); ctx.lineTo(-58,-58); ctx.lineTo(-18,-18);
+  ctx.quadraticCurveTo(0,10,18,-18); ctx.lineTo(58,-58); ctx.lineTo(150,-10);
+  ctx.moveTo(-18,-18); ctx.lineTo(0,78); ctx.lineTo(18,-18);
+  ctx.stroke();
+  ctx.shadowBlur=0; ctx.strokeStyle='#d6b25e'; ctx.lineWidth=2; ctx.globalAlpha=.7*alpha;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function checker(x,y,w,h,cell=28,opacity=.13){
+  ctx.save(); ctx.globalAlpha=opacity;
+  for(let yy=0;yy<h;yy+=cell){
+    for(let xx=0;xx<w;xx+=cell){
+      if(((xx/cell)+(yy/cell))%2===0){
+        ctx.fillStyle='#d6b25e'; ctx.fillRect(x+xx,y+yy,cell,cell);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function diagonalRays(){
+  ctx.save();
+  for(let i=-700;i<1400;i+=115){
+    ctx.strokeStyle=i%230===0?'rgba(214,178,94,.22)':'rgba(195,19,53,.18)';
+    ctx.lineWidth=i%230===0?8:4;
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+650,H); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+async function loadTemplate(){
+  return await new Promise((resolve,reject)=>{
+    const im = new Image();
+    im.onload=()=>resolve(im);
+    im.onerror=reject;
+    im.src='../template.png';
+  });
+}
+
+function drawBase(){
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createRadialGradient(512,430,70,512,512,780);
+  g.addColorStop(0,'#321454'); g.addColorStop(.35,'#130b25'); g.addColorStop(1,'#07060b');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  diagonalRays();
+
+  // Side panels
+  checker(60,360,205,500,30,.11);
+  checker(790,360,180,500,30,.11);
+
+  // Gold strategy lines
+  ctx.save(); ctx.strokeStyle='rgba(214,178,94,.42)'; ctx.lineWidth=3;
+  [[72,380,250,510],[72,600,245,720],[795,510,955,380],[800,720,952,600]].forEach(a=>{
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(a[2],a[3]); ctx.stroke();
+  });
+  ctx.restore();
+
+  // Geass-inspired emblems
+  wingedSigil(510,285,.66,.95);
+  wingedSigil(165,565,.42,.85);
+  wingedSigil(860,565,.42,.85);
+
+  // Zero mask-like angular geometry
+  ctx.save();
+  ctx.strokeStyle='rgba(214,178,94,.8)'; ctx.lineWidth=7; ctx.shadowColor='#7a42ce'; ctx.shadowBlur=14;
+  ctx.beginPath();
+  ctx.moveTo(390,735); ctx.lineTo(455,695); ctx.lineTo(512,740); ctx.lineTo(569,695); ctx.lineTo(635,735);
+  ctx.lineTo(575,800); ctx.lineTo(512,770); ctx.lineTo(448,800); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+
+  // Strategic text accents on door regions
+  ctx.save();
+  ctx.font='900 62px Georgia,serif'; ctx.letterSpacing='8px'; ctx.fillStyle='rgba(242,235,255,.86)';
+  ctx.fillText('ZERO',82,675); ctx.fillText('ZERO',800,675);
+  ctx.font='600 18px system-ui'; ctx.fillStyle='rgba(214,178,94,.9)';
+  ctx.fillText('REQUIEM // 11',84,708); ctx.fillText('REQUIEM // 11',802,708);
+  ctx.restore();
+
+  // subtle red vignette
+  const v=ctx.createRadialGradient(512,512,250,512,512,720);
+  v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(145,0,36,.18)');
+  ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
+}
+
+function drawArt(){
+  if(!userArt) return;
+  ctx.save();
+  ctx.globalAlpha=.72;
+  ctx.globalCompositeOperation='screen';
+  // left side
+  ctx.drawImage(userArt,60,395,215,345);
+  // right side mirrored
+  ctx.translate(W,0); ctx.scale(-1,1);
+  ctx.drawImage(userArt,55,395,215,345);
+  ctx.restore();
+}
+
+async function build(){
+  drawBase();
+  drawArt();
+  const template = await loadTemplate();
+  // Multiply against Tesla's black/white UV template: white keeps art, black clears unused UV space to black.
+  ctx.save();
+  ctx.globalCompositeOperation='multiply';
+  ctx.drawImage(template,0,0,W,H);
+  ctx.restore();
+}
+
+document.getElementById('art').addEventListener('change',e=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  const im=new Image();
+  im.onload=()=>{ userArt=im; build(); };
+  im.src=URL.createObjectURL(f);
+});
+document.getElementById('render').addEventListener('click',build);
+document.getElementById('download').addEventListener('click',async()=>{
+  await build();
+  c.toBlob(blob=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='Code_Geass_Zero.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  },'image/png');
+});
+build();
+</script>
+</body>
+</html>
